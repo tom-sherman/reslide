@@ -22,6 +22,7 @@ interface SlideModel {
   id: string;
   element: ReactNode;
   steps: number;
+  stepIndexAtom: PrimitiveAtom<number>;
 }
 
 interface PresentationModel {
@@ -32,21 +33,15 @@ export const slidesAtom = atom<SlideModel[]>([]);
 const slideCountAtom = atom((get) => get(slidesAtom).length);
 
 const activeSlideIndexAtom = atom(0);
-export const slideStepIndexFamily = atomFamily((id: string) => {
-  console.log({ id });
-  const a = atom(0);
-  a.debugLabel = `${id}-slideStepIndex`;
-  return a;
-});
 
 export const slideProgressAtom = atom((get) => {
   const activeSlide = get(activeSlideAtom);
   console.log({
     activeSlide,
-    step: activeSlide ? get(slideStepIndexFamily(activeSlide.id)) : null,
+    step: activeSlide ? get(activeSlide.stepIndexAtom) : null,
   });
   return {
-    stepIndex: activeSlide ? get(slideStepIndexFamily(activeSlide.id)) : 0,
+    stepIndex: activeSlide ? get(activeSlide.stepIndexAtom) : 0,
     slideIndex: get(activeSlideIndexAtom),
   };
 });
@@ -63,7 +58,7 @@ const writeGoBackAtom = atom(null, (get, set) => {
   }
 
   console.log("backStep");
-  set(slideStepIndexFamily(activeSlide.id), stepIndex - 1);
+  set(activeSlide.stepIndexAtom, stepIndex - 1);
 });
 const writeGoForwardAtom = atom(null, (get, set) => {
   const { slideIndex, stepIndex } = get(slideProgressAtom);
@@ -84,7 +79,7 @@ const writeGoForwardAtom = atom(null, (get, set) => {
   }
 
   console.log("here -1", activeSlide.id);
-  set(slideStepIndexFamily(activeSlide.id), stepIndex + 1);
+  set(activeSlide.stepIndexAtom, stepIndex + 1);
 });
 
 export const activeSlideAtom = atom(
@@ -103,7 +98,10 @@ export function useRegisterSlide(element: ReactNode) {
     if (id !== hasRegisteredRef.current) {
       hasRegisteredRef.current = id;
       console.log("registeringSlide");
-      setSlides((slides) => [...slides, { id, element, steps: 0 }]);
+      setSlides((slides) => [
+        ...slides,
+        { id, element, steps: 0, stepIndexAtom: atom(0) },
+      ]);
     }
   }, [element, id]);
 
