@@ -36,10 +36,6 @@ const activeSlideIndexAtom = atom(0);
 
 export const slideProgressAtom = atom((get) => {
   const activeSlide = get(activeSlideAtom);
-  console.log({
-    activeSlide,
-    step: activeSlide ? get(activeSlide.stepIndexAtom) : null,
-  });
   return {
     stepIndex: activeSlide ? get(activeSlide.stepIndexAtom) : 0,
     slideIndex: get(activeSlideIndexAtom),
@@ -57,7 +53,6 @@ const writeGoBackAtom = atom(null, (get, set) => {
     return;
   }
 
-  console.log("backStep");
   set(activeSlide.stepIndexAtom, stepIndex - 1);
 });
 const writeGoForwardAtom = atom(null, (get, set) => {
@@ -78,7 +73,6 @@ const writeGoForwardAtom = atom(null, (get, set) => {
     return;
   }
 
-  console.log("here -1", activeSlide.id);
   set(activeSlide.stepIndexAtom, stepIndex + 1);
 });
 
@@ -97,7 +91,6 @@ export function useRegisterSlide(element: ReactNode) {
   useEffect(() => {
     if (id !== hasRegisteredRef.current) {
       hasRegisteredRef.current = id;
-      console.log("registeringSlide");
       setSlides((slides) => [
         ...slides,
         { id, element, steps: 0, stepIndexAtom: atom(0) },
