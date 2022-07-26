@@ -1,4 +1,5 @@
 import { useAtomValue } from "jotai";
+import { useState } from "react";
 import "./App.css";
 import { Outlet } from "./lib/Outlet";
 import { Presentation } from "./lib/Presentation";
@@ -6,23 +7,46 @@ import { Slide } from "./lib/Slide";
 import { slideProgressAtom, usePresentationControls } from "./lib/state";
 import { Step } from "./lib/Step";
 
+function Slide2() {
+  const [steps, setSteps] = useState<number[]>([]);
+  const { stepIndex } = useAtomValue(slideProgressAtom);
+
+  return (
+    <div id="2">
+      <button onClick={() => setSteps(steps.concat(steps.length))}>
+        Add step
+      </button>
+      <button onClick={() => setSteps(steps.filter((n) => n !== stepIndex))}>
+        Remove this step
+      </button>
+      {steps.map((n) => (
+        <Step key={n} index={n}>
+          <p>Step: {n}</p>
+        </Step>
+      ))}
+    </div>
+  );
+}
+
 function App() {
   return (
     <Presentation>
       <Slide
         element={
-          <ul>
-            <li>Some</li>
+          <>
             <Step index={1}>
-              <li>Thing</li>
+              <p>foo</p>
             </Step>
-          </ul>
+            <Step index={2}>
+              <p>bar</p>
+            </Step>
+          </>
         }
       />
-      <Slide element={<p>World!</p>} />
+      <Slide element={<Slide2 />} />
 
-      <Outlet />
       <Controls />
+      <Outlet />
     </Presentation>
   );
 }
@@ -30,10 +54,11 @@ function App() {
 function Controls() {
   const { goForward, goBack } = usePresentationControls();
   return (
-    <>
+    <div style={{ position: "absolute", bottom: 0, right: 0 }}>
+      <Progress />
       <button onClick={goBack}>Back</button>
       <button onClick={goForward}>Forward</button>
-    </>
+    </div>
   );
 }
 

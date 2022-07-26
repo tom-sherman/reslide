@@ -1,32 +1,14 @@
-import {
-  PrimitiveAtom,
-  atom,
-  useAtomValue,
-  useSetAtom,
-  WritableAtom,
-} from "jotai";
-import { atomFamily } from "jotai/utils";
-import {
-  ReactElement,
-  ReactNode,
-  useCallback,
-  useEffect,
-  useId,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import type { PrimitiveAtom } from "jotai";
+import { atom, useSetAtom } from "jotai";
+import type { ReactNode } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import invariant from "ts-invariant";
 
 interface SlideModel {
   id: string;
   element: ReactNode;
-  steps: number;
+  maxStepIndexAtom: PrimitiveAtom<number>;
   stepIndexAtom: PrimitiveAtom<number>;
-}
-
-interface PresentationModel {
-  slides: SlideModel[];
 }
 
 export const slidesAtom = atom<SlideModel[]>([]);
@@ -36,20 +18,22 @@ const activeSlideIndexAtom = atom(0);
 
 export const slideProgressAtom = atom((get) => {
   const activeSlide = get(activeSlideAtom);
-  return {
-    stepIndex: activeSlide ? get(activeSlide.stepIndexAtom) : 0,
-    slideIndex: get(activeSlideIndexAtom),
-  };
+  const stepIndex = activeSlide ? get(activeSlide.stepIndexAtom) : 0;
+  const slideIndex = get(activeSlideIndexAtom);
+  return { stepIndex, slideIndex };
 });
+
 const writeGoBackAtom = atom(null, (get, set) => {
   const { slideIndex, stepIndex } = get(slideProgressAtom);
+  console.log({ slideIndex, stepIndex });
   const activeSlide = get(slidesAtom)[slideIndex];
   if (!activeSlide) {
     return;
   }
 
-  if (activeSlide.steps === 0 || stepIndex === 0) {
+  if (get(activeSlide.maxStepIndexAtom) === 0 || stepIndex === 0) {
     set(activeSlideIndexAtom, clamp(slideIndex - 1, 0));
+    set(activeSlide.stepIndexAtom, get(activeSlide.maxStepIndexAtom));
     return;
   }
 
@@ -63,13 +47,10 @@ const writeGoForwardAtom = atom(null, (get, set) => {
     return;
   }
   const lastSlideIndex = get(slideCountAtom) - 1;
+  const activeSlideMaxStepIndex = get(activeSlide.maxStepIndexAtom);
 
-  if (activeSlide.steps === 0 || stepIndex === activeSlide.steps) {
+  if (activeSlideMaxStepIndex === 0 || stepIndex === activeSlideMaxStepIndex) {
     set(activeSlideIndexAtom, Math.min(slideIndex + 1, lastSlideIndex));
-    return;
-  }
-
-  if (slideIndex === lastSlideIndex) {
     return;
   }
 
@@ -85,33 +66,87 @@ export const activeSlideElementAtom = atom(
 
 export function useRegisterSlide(element: ReactNode) {
   const id = useId();
+  const [maxStepIndexAtom] = useState(atom(0));
+  const [stepIndexAtom] = useState(atom(0));
   const setSlides = useSetAtom(slidesAtom);
-  const hasRegisteredRef = useRef<string | null>(null);
+
+  interface RegistryAction {
+    action: "register" | "unregister";
+    stepIndex: number;
+  }
+
+  const dispatchStepRegistry = useSetAtom(
+    useMemo(
+      () =>
+        atom(null, (get, set, { action, stepIndex }: RegistryAction) => {
+          console.log(action, stepIndex);
+          switch (action) {
+            case "register": {
+              set(maxStepIndexAtom, (maxStepIndex) => {
+                return Math.max(maxStepIndex, stepIndex);
+              });
+              return;
+            }
+
+            case "unregister": {
+              const currentMaxStepIndex = get(maxStepIndexAtom);
+              if (stepIndex === currentMaxStepIndex) {
+                const newMaxStepIndex = clamp(currentMaxStepIndex - 1, 0);
+                set(maxStepIndexAtom, newMaxStepIndex);
+                set(stepIndexAtom, newMaxStepIndex);
+                return;
+              }
+
+              // 0 1 2 3
+              //   ^
+
+              //
+
+              const newMaxStepIndex = Math.max(
+                stepIndex,
+                get(maxStepIndexAtom)
+              );
+              set(maxStepIndexAtom, newMaxStepIndex);
+
+              if (stepIndex > newMaxStepIndex) {
+                set(stepIndexAtom, newMaxStepIndex);
+              }
+              return;
+            }
+
+            default: {
+              invariant(false, `Unknown action: ${action}`);
+            }
+          }
+        }),
+      [maxStepIndexAtom, stepIndexAtom]
+    )
+  );
+
+  const registeredSlide = useMemo(
+    () => ({ id, element, maxStepIndexAtom, stepIndexAtom }),
+    [id, element, maxStepIndexAtom, stepIndexAtom]
+  );
 
   useEffect(() => {
-    if (id !== hasRegisteredRef.current) {
-      hasRegisteredRef.current = id;
-      setSlides((slides) => [
-        ...slides,
-        { id, element, steps: 0, stepIndexAtom: atom(0) },
-      ]);
-    }
-  }, [element, id]);
+    setSlides((slides) => [...slides, registeredSlide]);
+
+    return () => {
+      setSlides((slides) => slides.filter((slide) => slide.id !== id));
+    };
+  }, [id, registeredSlide, setSlides]);
 
   return useMemo(
     () => ({
       id,
       registerStep: (stepIndex: number) => {
-        setSlides((slides) =>
-          slides.map((slide) =>
-            slide.id === id
-              ? { ...slide, steps: Math.max(slide.steps, stepIndex) }
-              : slide
-          )
-        );
+        dispatchStepRegistry({ action: "register", stepIndex });
+      },
+      unregisterStep: (stepIndex: number) => {
+        dispatchStepRegistry({ action: "unregister", stepIndex });
       },
     }),
-    [id]
+    [id, dispatchStepRegistry]
   );
 }
 
