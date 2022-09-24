@@ -2,16 +2,24 @@ import { test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Presentation } from "../Presentation";
-import { Slide } from "../Slide";
 import { usePresentationControls } from "../state";
 import { Outlet } from "../Outlet";
 import { Step } from "../Step";
 
 test("should show first slide initially", async () => {
   render(
-    <Presentation>
-      <Slide element={<p>Hello</p>} />
-      <Slide element={<p>World</p>} />
+    <Presentation
+      slides={[
+        {
+          element: <p>Hello</p>,
+          index: 0,
+        },
+        {
+          element: <p>World</p>,
+          index: 1,
+        },
+      ]}
+    >
       <Outlet />
     </Presentation>
   );
@@ -32,9 +40,18 @@ function Controls() {
 
 test("should transition between two slides", async () => {
   render(
-    <Presentation>
-      <Slide element={<p>Hello</p>} />
-      <Slide element={<p>World</p>} />
+    <Presentation
+      slides={[
+        {
+          element: <p>Hello</p>,
+          index: 0,
+        },
+        {
+          element: <p>World</p>,
+          index: 1,
+        },
+      ]}
+    >
       <Controls />
       <Outlet />
     </Presentation>
@@ -51,31 +68,36 @@ test("should transition between two slides", async () => {
 
 test.skip("should transition between steps", async () => {
   const { debug } = render(
-    <Presentation>
-      <Slide
-        element={
-          <div id="1">
-            <Step index={1}>
-              <p>foo</p>
-            </Step>
-            <Step index={2}>
-              <p>bar</p>
-            </Step>
-          </div>
-        }
-      />
-      <Slide
-        element={
-          <div id="2">
-            <Step index={1}>
-              <p>baz</p>
-            </Step>
-            <Step index={2}>
-              <p>buz</p>
-            </Step>
-          </div>
-        }
-      />
+    <Presentation
+      slides={[
+        {
+          element: (
+            <div id="1">
+              <Step index={1}>
+                <p>foo</p>
+              </Step>
+              <Step index={2}>
+                <p>bar</p>
+              </Step>
+            </div>
+          ),
+          index: 0,
+        },
+        {
+          element: (
+            <div id="2">
+              <Step index={1}>
+                <p>baz</p>
+              </Step>
+              <Step index={2}>
+                <p>buz</p>
+              </Step>
+            </div>
+          ),
+          index: 1,
+        },
+      ]}
+    >
       <Controls />
       <Outlet />
     </Presentation>
