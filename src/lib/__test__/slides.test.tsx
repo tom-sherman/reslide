@@ -2,9 +2,11 @@ import { test, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Presentation } from "../Presentation";
-import { usePresentationControls } from "../state";
+import { slideProgressAtom, usePresentationControls } from "../state";
 import { Outlet } from "../Outlet";
 import { Step } from "../Step";
+import { useState } from "react";
+import { useAtomValue } from "jotai";
 
 test("should show first slide initially", async () => {
   render(
@@ -67,7 +69,7 @@ test("should transition between two slides", async () => {
 });
 
 test("should transition between steps", async () => {
-  const { debug } = render(
+  render(
     <Presentation
       slides={[
         {
@@ -137,4 +139,67 @@ test("should transition between steps", async () => {
   expect(screen.queryByText("bar")).toBeNull();
   expect(screen.queryByText("baz")).not.toBeNull();
   expect(screen.queryByText("buz")).not.toBeNull();
+});
+
+test("a step unmounting correctly shifts the active step index", async () => {
+  function DynamicSteps() {
+    const [steps, setSteps] = useState<number[]>([]);
+    const { stepIndex } = useAtomValue(slideProgressAtom);
+
+    return (
+      <div>
+        <button onClick={() => setSteps(steps.concat(steps.length))}>
+          Add step
+        </button>
+        <button onClick={() => setSteps(steps.filter((n) => n !== stepIndex))}>
+          Remove this step
+        </button>
+        {steps.map((n) => (
+          <Step key={n} index={n}>
+            <p>Step: {n}</p>
+          </Step>
+        ))}
+      </div>
+    );
+  }
+
+  render(
+    <Presentation
+      slides={[
+        {
+          element: <DynamicSteps />,
+          index: 0,
+        },
+      ]}
+    >
+      <Controls />
+      <Outlet />
+    </Presentation>
+  );
+
+  expect(screen.queryByText("Step: 0")).toBeNull();
+  await userEvent.click(screen.getByText("Add step"));
+  expect(screen.queryByText("Step: 0")).not.toBeNull();
+  await userEvent.click(screen.getByText("Add step"));
+  await userEvent.click(screen.getByText("Add step"));
+
+  // We now have 3 steps
+  expect(screen.queryByText("Step: 0")).not.toBeNull();
+  expect(screen.queryByText("Step: 1")).toBeNull();
+  expect(screen.queryByText("Step: 2")).toBeNull();
+  await userEvent.click(screen.getByText("Forward"));
+  await userEvent.click(screen.getByText("Forward"));
+  expect(screen.queryByText("Step: 2")).not.toBeNull();
+
+  await userEvent.click(screen.getByText("Remove this step"));
+
+  // We should now have 2 steps and be on step 1
+  expect(screen.queryByText("Step: 2")).toBeNull();
+  expect(screen.queryByText("Step: 0")).not.toBeNull();
+  expect(screen.queryByText("Step: 1")).not.toBeNull();
+
+  await userEvent.click(screen.getByText("Back"));
+  // We should now have 2 steps and be on step 0
+  expect(screen.queryByText("Step: 0")).not.toBeNull();
+  expect(screen.queryByText("Step: 1")).toBeNull();
 });

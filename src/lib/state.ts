@@ -86,6 +86,9 @@ export const writeUnregisterStepAtom = atom(null, (get, set) => {
   }
 
   set(maxStepIndexAtom, (current) => Math.max(0, current - 1));
+  set(activeSlideStepIndexAtom, (current) =>
+    Math.min(current, get(maxStepIndexAtom))
+  );
 });
 
 const activeSlideMaxStepIndexAtomAtom = atom((get) => {
