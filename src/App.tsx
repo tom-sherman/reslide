@@ -64,8 +64,12 @@ function Progress() {
   const progress = useAtomValue(slideProgressAtom);
   return (
     <>
-      <p>Slide: {progress.slideIndex}</p>
-      <p>Step: {progress.stepIndex}</p>
+      <p>
+        Slide idx: {progress.slideIndex}/{progress.maxSlideIndex}
+      </p>
+      <p>
+        Step idx: {progress.stepIndex}/{progress.maxStepIndex}
+      </p>
     </>
   );
 }

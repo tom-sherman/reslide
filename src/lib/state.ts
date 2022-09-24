@@ -18,7 +18,15 @@ const activeSlideStepIndexAtom = atom(0);
 export const slideProgressAtom = atom((get) => {
   const slideIndex = get(activeSlideIndexAtom);
   const stepIndex = get(activeSlideStepIndexAtom);
-  return { stepIndex, slideIndex };
+  const slideCount = get(slideCountAtom);
+  const maxStepIndexAtom = get(activeSlideMaxStepIndexAtomAtom);
+
+  return {
+    stepIndex,
+    slideIndex,
+    maxSlideIndex: slideCount - 1,
+    maxStepIndex: maxStepIndexAtom ? get(maxStepIndexAtom) : 0,
+  };
 });
 
 const writeNavigateAtom = atom(null, (get, set, update: number) => {
@@ -77,7 +85,7 @@ export const writeUnregisterStepAtom = atom(null, (get, set) => {
     return;
   }
 
-  set(maxStepIndexAtom, (current) => current - 1);
+  set(maxStepIndexAtom, (current) => Math.max(0, current - 1));
 });
 
 const activeSlideMaxStepIndexAtomAtom = atom((get) => {
