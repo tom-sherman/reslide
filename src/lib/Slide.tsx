@@ -1,9 +1,10 @@
+import { useSetAtom } from "jotai";
 import type { ReactNode } from "react";
 import { createContext, useContext, useMemo } from "react";
-import { useRegisterSlide } from "./state";
+import { writeRegisterStepAtom, writeUnregisterStepAtom } from "./state";
 
 export interface SlideProps {
-  element: ReactNode;
+  children: ReactNode;
 }
 
 const SlideContext = createContext({
@@ -14,21 +15,20 @@ const SlideContext = createContext({
 });
 export const useSlideContext = () => useContext(SlideContext);
 
-export function Slide({ element }: SlideProps) {
-  const elementWithContext = useMemo(
-    () => (
-      <SlideContext.Provider
-        value={{
-          registerStep: (stepIndex: number) => registerStep(stepIndex),
-          unregisterStep: (stepIndex: number) => unregisterStep(stepIndex),
-        }}
-      >
-        {element}
-      </SlideContext.Provider>
-    ),
-    [element]
+export function Slide({ children }: SlideProps) {
+  const registerStep = useSetAtom(writeRegisterStepAtom);
+  const unregisterStep = useSetAtom(writeUnregisterStepAtom);
+  const contextValue = useMemo(
+    () => ({
+      registerStep,
+      unregisterStep,
+    }),
+    [registerStep, unregisterStep]
   );
-  const { registerStep, unregisterStep } = useRegisterSlide(elementWithContext);
 
-  return null;
+  return (
+    <SlideContext.Provider value={contextValue}>
+      {children}
+    </SlideContext.Provider>
+  );
 }

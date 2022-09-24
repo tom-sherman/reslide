@@ -3,7 +3,6 @@ import { useState } from "react";
 import "./App.css";
 import { Outlet } from "./lib/Outlet";
 import { Presentation } from "./lib/Presentation";
-import { Slide } from "./lib/Slide";
 import { slideProgressAtom, usePresentationControls } from "./lib/state";
 import { Step } from "./lib/Step";
 
@@ -28,23 +27,22 @@ function Slide2() {
   );
 }
 
+const slides = [
+  <>
+    <Step index={1}>
+      <p>foo</p>
+    </Step>
+    <Step index={2}>
+      <p>bar</p>
+    </Step>
+  </>,
+  // eslint-disable-next-line react/jsx-key
+  <Slide2 />,
+];
+
 function App() {
   return (
-    <Presentation>
-      <Slide
-        element={
-          <>
-            <Step index={1}>
-              <p>foo</p>
-            </Step>
-            <Step index={2}>
-              <p>bar</p>
-            </Step>
-          </>
-        }
-      />
-      <Slide element={<Slide2 />} />
-
+    <Presentation slides={slides.map((element, index) => ({ element, index }))}>
       <Controls />
       <Outlet />
     </Presentation>

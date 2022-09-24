@@ -1,160 +1,97 @@
 import type { PrimitiveAtom } from "jotai";
 import { atom, useSetAtom } from "jotai";
 import type { ReactNode } from "react";
-import { useEffect, useId, useMemo, useState } from "react";
-import invariant from "ts-invariant";
+import { useMemo } from "react";
 
 interface SlideModel {
-  id: string;
+  index: number;
   element: ReactNode;
   maxStepIndexAtom: PrimitiveAtom<number>;
-  stepIndexAtom: PrimitiveAtom<number>;
 }
 
 export const slidesAtom = atom<SlideModel[]>([]);
 const slideCountAtom = atom((get) => get(slidesAtom).length);
 
 const activeSlideIndexAtom = atom(0);
+const activeSlideStepIndexAtom = atom(0);
 
 export const slideProgressAtom = atom((get) => {
-  const activeSlide = get(activeSlideAtom);
-  const stepIndex = activeSlide ? get(activeSlide.stepIndexAtom) : 0;
   const slideIndex = get(activeSlideIndexAtom);
+  const stepIndex = get(activeSlideStepIndexAtom);
   return { stepIndex, slideIndex };
 });
 
-const writeGoBackAtom = atom(null, (get, set) => {
-  const { slideIndex, stepIndex } = get(slideProgressAtom);
-  console.log({ slideIndex, stepIndex });
-  const activeSlide = get(slidesAtom)[slideIndex];
-  if (!activeSlide) {
-    return;
-  }
+const writeNavigateAtom = atom(null, (get, set, update: number) => {
+  const slideCount = get(slideCountAtom);
+  const activeSlideIndex = get(activeSlideIndexAtom);
+  const activeSlideStepIndex = get(activeSlideStepIndexAtom);
+  const activeSlideMaxStepIndexAtom = get(activeSlideMaxStepIndexAtomAtom);
 
-  if (get(activeSlide.maxStepIndexAtom) === 0 || stepIndex === 0) {
-    set(activeSlideIndexAtom, clamp(slideIndex - 1, 0));
-    set(activeSlide.stepIndexAtom, get(activeSlide.maxStepIndexAtom));
-    return;
-  }
+  const nextStep = activeSlideStepIndex + update;
+  const clampedNextStep = clamp(
+    nextStep,
+    0,
+    activeSlideMaxStepIndexAtom ? get(activeSlideMaxStepIndexAtom) : 0
+  );
 
-  set(activeSlide.stepIndexAtom, stepIndex - 1);
-});
-const writeGoForwardAtom = atom(null, (get, set) => {
-  const { slideIndex, stepIndex } = get(slideProgressAtom);
-  const slides = get(slidesAtom);
-  const activeSlide = slides[slideIndex];
-  if (!activeSlide) {
-    return;
+  if (nextStep === clampedNextStep) {
+    set(activeSlideStepIndexAtom, nextStep);
+  } else {
+    const nextSlide = clamp(
+      activeSlideIndex + Math.sign(update),
+      0,
+      slideCount - 1
+    );
+    set(activeSlideIndexAtom, nextSlide);
+    if (nextSlide > activeSlideIndex) {
+      set(activeSlideStepIndexAtom, 0);
+    } else if (nextSlide < activeSlideIndex) {
+      const nextSlideMaxStepIndexAtom = get(activeSlideMaxStepIndexAtomAtom);
+      set(
+        activeSlideStepIndexAtom,
+        nextSlideMaxStepIndexAtom ? get(nextSlideMaxStepIndexAtom) : 0
+      );
+    }
   }
-  const lastSlideIndex = get(slideCountAtom) - 1;
-  const activeSlideMaxStepIndex = get(activeSlide.maxStepIndexAtom);
-
-  if (activeSlideMaxStepIndex === 0 || stepIndex === activeSlideMaxStepIndex) {
-    set(activeSlideIndexAtom, Math.min(slideIndex + 1, lastSlideIndex));
-    return;
-  }
-
-  set(activeSlide.stepIndexAtom, stepIndex + 1);
 });
 
 export const activeSlideAtom = atom(
   (get) => get(slidesAtom)[get(activeSlideIndexAtom)]
 );
+
 export const activeSlideElementAtom = atom(
   (get) => get(activeSlideAtom)?.element ?? null
 );
 
-export function useRegisterSlide(element: ReactNode) {
-  const id = useId();
-  const [maxStepIndexAtom] = useState(atom(0));
-  const [stepIndexAtom] = useState(atom(0));
-  const setSlides = useSetAtom(slidesAtom);
+export const writeRegisterStepAtom = atom(null, (get, set, index: number) => {
+  const maxStepIndexAtom = get(activeSlideMaxStepIndexAtomAtom);
+  if (!maxStepIndexAtom) {
+    return;
+  }
+  set(maxStepIndexAtom, Math.max(get(maxStepIndexAtom), index));
+});
 
-  interface RegistryAction {
-    action: "register" | "unregister";
-    stepIndex: number;
+export const writeUnregisterStepAtom = atom(null, (get, set) => {
+  const maxStepIndexAtom = get(activeSlideMaxStepIndexAtomAtom);
+  if (!maxStepIndexAtom) {
+    return;
   }
 
-  const dispatchStepRegistry = useSetAtom(
-    useMemo(
-      () =>
-        atom(null, (get, set, { action, stepIndex }: RegistryAction) => {
-          console.log(action, stepIndex);
-          switch (action) {
-            case "register": {
-              set(maxStepIndexAtom, (maxStepIndex) => {
-                return Math.max(maxStepIndex, stepIndex);
-              });
-              return;
-            }
+  set(maxStepIndexAtom, (current) => current - 1);
+});
 
-            case "unregister": {
-              const currentMaxStepIndex = get(maxStepIndexAtom);
-              if (stepIndex === currentMaxStepIndex) {
-                const newMaxStepIndex = clamp(currentMaxStepIndex - 1, 0);
-                set(maxStepIndexAtom, newMaxStepIndex);
-                set(stepIndexAtom, newMaxStepIndex);
-                return;
-              }
-
-              // 0 1 2 3
-              //   ^
-
-              //
-
-              const newMaxStepIndex = Math.max(
-                stepIndex,
-                get(maxStepIndexAtom)
-              );
-              set(maxStepIndexAtom, newMaxStepIndex);
-
-              if (stepIndex > newMaxStepIndex) {
-                set(stepIndexAtom, newMaxStepIndex);
-              }
-              return;
-            }
-
-            default: {
-              invariant(false, `Unknown action: ${action}`);
-            }
-          }
-        }),
-      [maxStepIndexAtom, stepIndexAtom]
-    )
-  );
-
-  const registeredSlide = useMemo(
-    () => ({ id, element, maxStepIndexAtom, stepIndexAtom }),
-    [id, element, maxStepIndexAtom, stepIndexAtom]
-  );
-
-  useEffect(() => {
-    setSlides((slides) => [...slides, registeredSlide]);
-
-    return () => {
-      setSlides((slides) => slides.filter((slide) => slide.id !== id));
-    };
-  }, [id, registeredSlide, setSlides]);
-
-  return useMemo(
-    () => ({
-      id,
-      registerStep: (stepIndex: number) => {
-        dispatchStepRegistry({ action: "register", stepIndex });
-      },
-      unregisterStep: (stepIndex: number) => {
-        dispatchStepRegistry({ action: "unregister", stepIndex });
-      },
-    }),
-    [id, dispatchStepRegistry]
-  );
-}
+const activeSlideMaxStepIndexAtomAtom = atom((get) => {
+  const activeSlide = get(activeSlideAtom);
+  return activeSlide?.maxStepIndexAtom ?? null;
+});
 
 export function usePresentationControls() {
-  const goBack: () => void = useSetAtom(writeGoBackAtom);
-  const goForward: () => void = useSetAtom(writeGoForwardAtom);
+  const navigate = useSetAtom(writeNavigateAtom);
 
-  return useMemo(() => ({ goBack, goForward }), [goBack, goForward]);
+  return useMemo(
+    () => ({ goBack: () => navigate(-1), goForward: () => navigate(+1) }),
+    [navigate]
+  );
 }
 
 function clamp(number: number, lower?: number, upper?: number) {
