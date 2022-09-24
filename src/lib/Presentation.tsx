@@ -31,7 +31,7 @@ function PresentationInner({ children, slides }: PresentationProps) {
       slides.map((slide) => ({
         ...slide,
         maxStepIndexAtom: atom(0),
-        element: <Slide>{slide.element}</Slide>,
+        element: <Slide key={slide.index}>{slide.element}</Slide>,
       }))
     );
   }, [setSlides, slides]);

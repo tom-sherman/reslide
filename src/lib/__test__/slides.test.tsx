@@ -66,7 +66,7 @@ test("should transition between two slides", async () => {
   expect(screen.queryByText("Hello")).not.toBeNull();
 });
 
-test.skip("should transition between steps", async () => {
+test("should transition between steps", async () => {
   const { debug } = render(
     <Presentation
       slides={[
@@ -127,11 +127,6 @@ test.skip("should transition between steps", async () => {
   expect(screen.queryByText("buz")).toBeNull();
 
   await userEvent.click(screen.getByText("Forward"));
-  await userEvent.click(screen.getByText("Forward"));
-  await userEvent.click(screen.getByText("Forward"));
-  await userEvent.click(screen.getByText("Forward"));
-  await userEvent.click(screen.getByText("Forward"));
-  debug();
   expect(screen.queryByText("foo")).toBeNull();
   expect(screen.queryByText("bar")).toBeNull();
   expect(screen.queryByText("baz")).not.toBeNull();
